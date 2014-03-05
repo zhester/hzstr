@@ -1,0 +1,76 @@
+##############################################################################
+#	Makefile.test
+#	Zac Hester
+#	2012-10-24 - 2014-03-05
+##############################################################################
+
+# This file is run relative to the unit test directory (not this file's dir).
+include ../../build/gcc/Makefile.inc
+
+# Project environment
+BLDDIR = build
+
+# Capture the full path to the unit test.
+TEST_PATH := $(shell pwd)
+
+# Extract the target unit test module name.
+TEST := $(shell basename $(TEST_PATH))
+
+# Code under test
+CUT := ../../src/$(TEST).c
+
+# Dependencies of test
+DOT := $(CUT) ../../include/hzstr/$(TEST).h
+
+# Source files to build.
+SOURCES := $(TEST)_test.c ../test.c $(CUT)
+
+# Objects to build.
+OBJECTS := $(BLDDIR)/$(TEST)_test.o $(BLDDIR)/test.o $(BLDDIR)/$(TEST).o
+
+# Binary to build.
+OUT = $(BLDDIR)/$(TEST)
+
+# Default target.
+all: $(OUT)
+
+# Run the test.
+run: $(OUT)
+	./build/$(TEST) $(BLDDIR)/test.log
+
+# Run the test, but display output on the console.
+dev: $(OUT)
+	./build/$(TEST)
+
+# Clean, build (for coverage), run, and report code coverage.
+cov: clean covbuild run
+	gcov -b -c -o $(BLDDIR) $(TEST).c
+	mv $(TEST).c.gcov $(BLDDIR)
+
+# Build a coverage analysis binary.
+covbuild: CFLAGS += -fprofile-arcs -ftest-coverage
+covbuild: $(OUT)
+
+# How to build the test binary.
+$(OUT): $(OBJECTS)
+	$(LD) $(LDFLAGS) -o $@ $(OBJECTS)
+
+# How to build the test framework object.
+$(BLDDIR)/test.o: ../test.c ../test.h | $(BLDDIR)
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+# How to build the unit test.
+$(BLDDIR)/$(TEST)_test.o: $(TEST)_test.c $(DOT) | $(BLDDIR)
+	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ -c $< -I.. -I../../include/hzstr
+
+# How to build the unit under test.
+$(BLDDIR)/$(TEST).o: $(DOT) | $(BLDDIR)
+	$(CC) $(CFLAGS) -DUNIT_TEST -o $@ -c $< -I.. -I../../include/hzstr
+
+# Make sure there's an output directory.
+$(BLDDIR):
+	mkdir -p $(BLDDIR)
+
+# Clean up project.
+clean:
+	rm -rf $(BLDDIR)
